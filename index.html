@@ -1,0 +1,118 @@
+<!doctype html>
+<html lang="bn">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>PRITHWI 3D GAMING WORLD</title>
+<style>
+:root{--bg:#080d1c;--panel:#121b31;--cyan:#43e7ff;--purple:#a98bff;--white:#f5f7ff}
+*{box-sizing:border-box}body{margin:0;background:radial-gradient(circle at 20% 0%,#1d3260 0,#080d1c 45%);color:var(--white);font-family:system-ui,Arial,sans-serif;min-height:100vh}
+header{text-align:center;padding:30px 16px 20px}h1{margin:0;font-size:clamp(27px,7vw,48px);letter-spacing:1px;color:var(--cyan);text-shadow:0 0 18px #43e7ff66}header p{color:#bdc8e6;margin:8px auto;max-width:650px}
+.wrap{max-width:1000px;margin:auto;padding:12px 16px 40px}.cards{display:grid;grid-template-columns:repeat(auto-fit,minmax(220px,1fr));gap:14px}
+.card{background:linear-gradient(145deg,#192744,#10182b);border:1px solid #31466e;border-radius:18px;padding:18px;box-shadow:0 10px 30px #0005}
+.emoji{font-size:40px}.card h2{margin:8px 0}.card p{color:#bac7e4;min-height:42px}
+button{background:linear-gradient(90deg,#22c7e8,#8d7cff);color:#06101c;border:0;border-radius:12px;padding:12px 16px;font-weight:800;font-size:15px;cursor:pointer}
+button.secondary{background:#263958;color:white;border:1px solid #4c638b}.gamebox{display:none;margin-top:18px;background:#0d1528;border:1px solid #344a70;border-radius:18px;padding:14px}
+.gamehead{display:flex;justify-content:space-between;align-items:center;gap:10px;flex-wrap:wrap}.gamehead h2{margin:4px 0}
+canvas{display:block;width:100%;height:min(62vh,480px);min-height:300px;background:#07101e;border-radius:12px;margin-top:12px;touch-action:none}
+.controls{display:flex;gap:10px;justify-content:center;flex-wrap:wrap;margin-top:12px}.hint{color:#c1cde6;font-size:14px;text-align:center}
+footer{text-align:center;color:#8493b4;font-size:13px;padding:8px 16px 28px}
+</style>
+</head>
+<body>
+<header><h1>PRITHWI 3D GAMING WORLD</h1><p>তোমার নিজের ছোট্ট 3D গেমিং দুনিয়া — মোবাইল ও কম্পিউটারে খেলো!</p></header>
+<main class="wrap">
+<section class="cards">
+ <article class="card"><div class="emoji">🏎️</div><h2>3D Neon Racing</h2><p>রাস্তার বাধা এড়িয়ে গাড়ি চালাও।</p><button onclick="startGame('race')">PLAY GAME</button></article>
+ <article class="card"><div class="emoji">⚽</div><h2>3D Penalty Kick</h2><p>গোলপোস্টে শট নিয়ে গোল করার চেষ্টা করো।</p><button onclick="startGame('football')">PLAY GAME</button></article>
+ <article class="card"><div class="emoji">🧩</div><h2>3D Crystal Maze</h2><p>গোলকধাঁধা পেরিয়ে নীল ক্রিস্টালে পৌঁছাও।</p><button onclick="startGame('maze')">PLAY GAME</button></article>
+</section>
+<section class="gamebox" id="gamebox">
+ <div class="gamehead"><h2 id="gametitle">Game</h2><button class="secondary" onclick="stopGame()">BACK TO GAMES</button></div>
+ <canvas id="screen" width="900" height="520"></canvas>
+ <div class="controls" id="controls"></div><p class="hint" id="hint">Keyboard: arrow keys / WASD. Mobile: use the buttons.</p>
+ <p class="hint" id="score">Score: 0</p>
+</section>
+</main>
+<footer>Made for fun • PRITHWI 3D GAMING WORLD</footer>
+<script src="https://cdn.jsdelivr.net/npm/three@0.160.0/build/three.min.js"></script>
+<script>
+let renderer,scene,camera,anim,mode,score=0,keys={},player,objects=[],goal,frame=0,active=false;
+const canvas=document.getElementById('screen');
+function startGame(which){
+ if(!window.THREE){alert('3D library load হয়নি। ইন্টারনেট সংযোগ দিয়ে আবার চেষ্টা করো।');return}
+ stopGame();mode=which;score=0;frame=0;objects=[];keys={};active=true;
+ document.getElementById('gamebox').style.display='block';
+ document.getElementById('gametitle').textContent=({race:'3D Neon Racing',football:'3D Penalty Kick',maze:'3D Crystal Maze'})[mode];
+ document.getElementById('score').textContent='Score: 0';
+ const hint={race:'← → বা A/D চাপো; মোবাইলে নিচের বোতাম ব্যবহার করো। বাধা এড়িয়ে চলো।',football:'বাম, মাঝখান বা ডান দিকে শট নাও।',maze:'Arrow keys বা WASD দিয়ে নীল ক্রিস্টালের দিকে যাও।'}[mode];
+ document.getElementById('hint').textContent=hint;
+ setupControls();init3D();if(mode==='race')buildRace();if(mode==='football')buildFootball();if(mode==='maze')buildMaze();
+ animate();document.getElementById('gamebox').scrollIntoView({behavior:'smooth'});
+}
+function setupControls(){
+ const c=document.getElementById('controls');c.innerHTML='';
+ if(mode==='race'||mode==='maze'){
+  [['◀','left'],['▲','up'],['▼','down'],['▶','right']].forEach(([t,k])=>{let b=document.createElement('button');b.textContent=t;b.className='secondary';b.onpointerdown=e=>{e.preventDefault();keys[k]=true};b.onpointerup=b.onpointerleave=()=>keys[k]=false;c.appendChild(b)});
+ }else{
+  ['LEFT SHOT','CENTER SHOT','RIGHT SHOT'].forEach((t,i)=>{let b=document.createElement('button');b.textContent=t;b.onclick=()=>kick(i);c.appendChild(b)});
+ }
+}
+function init3D(){
+ scene=new THREE.Scene();scene.background=new THREE.Color(mode==='football'?0x102345:0x071326);scene.fog=new THREE.Fog(0x071326,16,55);
+ camera=new THREE.PerspectiveCamera(60,900/520,.1,100);renderer=new THREE.WebGLRenderer({canvas,antialias:true});renderer.setPixelRatio(Math.min(devicePixelRatio,2));renderer.setSize(900,520,false);
+ scene.add(new THREE.HemisphereLight(0xbadfff,0x17213d,2));let light=new THREE.DirectionalLight(0xffffff,2);light.position.set(5,10,8);scene.add(light);
+}
+function mat(color,emissive=0x000000){return new THREE.MeshStandardMaterial({color,roughness:.45,metalness:.15,emissive,emissiveIntensity:.35})}
+function box(x,y,z,sx,sy,sz,color,em=0){let m=new THREE.Mesh(new THREE.BoxGeometry(sx,sy,sz),mat(color,em));m.position.set(x,y,z);scene.add(m);return m}
+function floor(color=0x172c3d){let f=new THREE.Mesh(new THREE.PlaneGeometry(80,100),mat(color));f.rotation.x=-Math.PI/2;f.position.y=-.55;scene.add(f)}
+function buildRace(){
+ floor(0x111e31);camera.position.set(0,5,10);camera.lookAt(0,0,-5);
+ for(let x of [-2,2])box(x,-.48,-18,.08,.08,45,0x35dfff,0x1688aa);
+ player=box(0,0,4,1.1,.65,1.8,0x39ddff,0x087caa);
+ for(let i=0;i<8;i++){let o=box((Math.random()-.5)*4,0,-8-i*5,1,.9,1,0xff4f83,0x8a1238);objects.push(o)}
+}
+function buildFootball(){
+ floor(0x12623c);let field=new THREE.Mesh(new THREE.PlaneGeometry(24,32),mat(0x16844b));field.rotation.x=-Math.PI/2;field.position.set(0,-.5,-5);scene.add(field);
+ camera.position.set(0,4,13);camera.lookAt(0,1,-4);
+ box(0,1.2,-10,8,.18,.25,0xffffff);box(-4,0,-10,.18,2.4,.25,0xffffff);box(4,0,-10,.18,2.4,.25,0xffffff);
+ for(let i=-3;i<=3;i+=1.5)box(i,1,-10,.035,2,.1,0xffffff);
+ player=new THREE.Mesh(new THREE.SphereGeometry(.42,24,24),mat(0xffffff));player.position.set(0,-.05,5);scene.add(player);
+}
+function kick(dir){
+ if(!active||mode!=='football')return;score++;document.getElementById('score').textContent='Shots: '+score;
+ const x=[-2.7,0,2.7][dir];let ball=new THREE.Mesh(new THREE.SphereGeometry(.3,20,20),mat(0xffefad,0x997733));ball.position.set(0,0,5);scene.add(ball);
+ let t=0;function fly(){if(!active)return;t+=.035;ball.position.set(x*t,Math.sin(t*Math.PI)*2,5-15*t);ball.rotation.x+=.2;if(t<1)requestAnimationFrame(fly);else{scene.remove(ball);document.getElementById('hint').textContent=(Math.abs(x)>2?'চমৎকার শট!':'দারুণ চেষ্টা!')+' আবার শট নাও।';}}fly();
+}
+function buildMaze(){
+ floor(0x17243b);camera.position.set(0,10,9);camera.lookAt(0,0,-2);
+ for(let i=0;i<9;i++){box(-4+i, -.1,-6, .9,.7,.9,0x334a70);box(-4+i,.0,2,.9,.7,.9,0x334a70)}
+ [[-3,-4],[-1,-4],[1,-4],[3,-4],[3,-2],[1,0],[-1,0],[-3,2],[0,2]].forEach(([x,z])=>box(x,.1,z,.9,1,.9,0x7e6cff,0x352080));
+ player=box(-3,0,4,.65,.65,.65,0x42eaff,0x1488aa);
+ goal= new THREE.Mesh(new THREE.OctahedronGeometry(.8),mat(0x72ffbd,0x159c66));goal.position.set(3,.5,-4);scene.add(goal);
+}
+function animate(){
+ if(!active)return;anim=requestAnimationFrame(animate);frame++;
+ if(mode==='race'){
+  if(keys.left||keys.a)player.position.x=Math.max(-2.2,player.position.x-.12);
+  if(keys.right||keys.d)player.position.x=Math.min(2.2,player.position.x+.12);
+  objects.forEach(o=>{o.position.z+=.22;if(o.position.z>7){o.position.z=-30-Math.random()*10;o.position.x=(Math.random()-.5)*4;score++;document.getElementById('score').textContent='Score: '+score}
+   if(Math.abs(o.position.z-player.position.z)<1.1&&Math.abs(o.position.x-player.position.x)<.9){document.getElementById('hint').textContent='ধাক্কা লেগেছে! BACK TO GAMES চাপ দিয়ে আবার শুরু করো।';active=false;}
+  });
+ }else if(mode==='maze'){
+  if(keys.left||keys.a)player.position.x=Math.max(-3.5,player.position.x-.08);
+  if(keys.right||keys.d)player.position.x=Math.min(3.5,player.position.x+.08);
+  if(keys.up||keys.w)player.position.z=Math.max(-5,player.position.z-.08);
+  if(keys.down||keys.s)player.position.z=Math.min(4,player.position.z+.08);
+  goal.rotation.y+=.025;
+  if(player.position.distanceTo(goal.position)<1.2){score++;document.getElementById('score').textContent='You win!';document.getElementById('hint').textContent='অভিনন্দন! তুমি ক্রিস্টাল খুঁজে পেয়েছ।';active=false;}
+ }
+ if(mode==='football')player.rotation.y+=.003;
+ renderer.render(scene,camera);
+}
+function stopGame(){active=false;if(anim)cancelAnimationFrame(anim);if(renderer){renderer.dispose();renderer=null}document.getElementById('gamebox').style.display='none';}
+window.addEventListener('keydown',e=>{let k=e.key.toLowerCase();keys[k]=true;if(k.startsWith('arrow'))e.preventDefault()});
+window.addEventListener('keyup',e=>keys[e.key.toLowerCase()]=false);
+window.addEventListener('resize',()=>{if(renderer&&camera){let w=900,h=520;camera.aspect=w/h;camera.updateProjectionMatrix();renderer.setSize(w,h,false)}});
+</script>
+</body></html>
